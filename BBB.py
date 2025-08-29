@@ -1,26 +1,42 @@
 import hashlib
+import os
 import time
+from dotenv import load_dotenv #baixar usando pip
+from pymongo import MongoClient #baixar usando pip
+
+load_dotenv()
+
+mongo_url = os.getenv("mongo_url")
+cliente = MongoClient(mongo_url)
+
+db = cliente['BancoBrasileiro']
+usuarios = db['usuarios']
 
 #cadastrar pessoa
 def cadastrar_pessoa(nome,senha):
-    with open("usuarios.txt","a") as arquivo:
-        senha_bytes = str(senha).encode('utf-8')
-        hash_senha = hashlib.sha256(senha_bytes).hexdigest()
+    senha_bytes = str(senha).encode('utf-8')
+    hash_senha = hashlib.sha256(senha_bytes).hexdigest()
 
-        arquivo.write(f"{nome}:{hash_senha}\n")
-        print("\n✅ Usuário cadastrado com sucesso! 🎉")
+    novo_usuario = {
+        "nome": nome,
+        "hash_senha": hash_senha,
+        "data_cadastro": time.time()
+    }
+    usuarios.insert_one(novo_usuario)
+    print("\n✅ Usuário cadastrado com sucesso! 🎉")
+
 #verificar
 def verificacao_senha_nome(senha_digitada,nome_digitado):
     try:
-        senha_digitada_bytes = str(senha_digitada).encode('utf-8')
-        hash_senha_digitada = hashlib.sha256(senha_digitada_bytes).hexdigest()
+        usuario = usuarios.find_one({'nome':nome_digitado})
+        if usuario:
+            senha_digitada_bytes = str(senha_digitada).encode('utf-8')
+            hash_senha_digitada = hashlib.sha256(senha_digitada_bytes).hexdigest()
 
-        with open("usuarios.txt","r") as arquivo:
-            for linha in arquivo:
-                nome_salvo, hash_salva =  linha.strip().split(':')
-                if nome_salvo == nome_digitado and hash_salva == hash_senha_digitada:
+            if usuario['hash_senha'] == hash_senha_digitada:
                     return True
-    except FileNotFoundError:
+    except Exception as e:
+        print(f"Ocorreu um erro no banco de dados: {e}")
         return False
     return False
 
